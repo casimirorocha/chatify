@@ -2,6 +2,8 @@
 
 namespace Chatify;
 
+use App\Helpers\ImageSizes;
+use App\Helpers\SecureImage;
 use App\Models\ChMessage as Message;
 use App\Models\ChFavorite as Favorite;
 use Illuminate\Support\Facades\Storage;
@@ -292,13 +294,15 @@ class ChatifyMessenger
      */
     public function getUserWithAvatar($user)
     {
-        /* if ($user->avatar == 'avatar.png' && config('chatify.gravatar.enabled')) {
+        /*if ($user->avatar == 'avatar.png' && config('chatify.gravatar.enabled')) {
             $imageSize = config('chatify.gravatar.image_size');
             $imageset = config('chatify.gravatar.imageset');
             $user->avatar = 'https://www.gravatar.com/avatar/' . md5(strtolower(trim($user->email))) . '?s=' . $imageSize . '&d=' . $imageset;
         } else {
             $user->avatar = self::getUserAvatarUrl($user->avatar);
-        } */
+        }*/
+
+        $user->avatar = self::getUserAvatarUrl("$user->name/photos/".$user->getOriginal('avatar'));
 
         return $user;
     }
@@ -425,12 +429,12 @@ class ChatifyMessenger
     /**
      * Get user avatar url.
      *
-     * @param string $user_avatar_name
+     * @param string $path
      * @return string
      */
-    public function getUserAvatarUrl($user_avatar_name)
+    public function getUserAvatarUrl($path)
     {
-        return self::storage()->url(config('chatify.user_avatar.folder') . '/' . $user_avatar_name);
+        return SecureImage::url($path, ImageSizes::SMALL);
     }
 
     /**

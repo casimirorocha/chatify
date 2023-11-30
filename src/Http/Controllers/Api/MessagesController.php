@@ -2,12 +2,13 @@
 
 namespace Chatify\Http\Controllers\Api;
 
+use App\Helpers\MyCache;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Response;
 use App\Models\ChMessage as Message;
 use App\Models\ChFavorite as Favorite;
-use Chatify\Facades\ChatifyMessenger as Chatify;
+use chatify\src\Facades\ChatifyMessenger as Chatify;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +40,7 @@ class MessagesController extends Controller
      * Fetch data by id for (user/group)
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\Contracts\Auth\Authenticatable|User
      */
     public function idFetchData(Request $request)
     {
@@ -89,7 +90,7 @@ class MessagesController extends Controller
      * Send a message to database
      *
      * @param Request $request
-     * @return JSON response
+     * @return \Illuminate\Http\JsonResponse response
      */
     public function send(Request $request)
     {
@@ -166,7 +167,7 @@ class MessagesController extends Controller
      * fetch [user/group] messages from database
      *
      * @param Request $request
-     * @return JSON response
+     * @return \Illuminate\Http\JsonResponse response
      */
     public function fetch(Request $request)
     {
@@ -187,7 +188,7 @@ class MessagesController extends Controller
      * Make messages as seen
      *
      * @param Request $request
-     * @return void
+     * @return \Illuminate\Http\JsonResponse
      */
     public function seen(Request $request)
     {
@@ -217,7 +218,7 @@ class MessagesController extends Controller
             ->orWhere('ch_messages.to_id', Auth::user()->id);
         })
         ->where('users.id','!=',Auth::user()->id)
-        ->select('users.*',DB::raw('MAX(ch_messages.created_at) max_created_at'))
+        ->select('users.*', DB::raw('MAX(ch_messages.created_at) max_created_at'))
         ->orderBy('max_created_at', 'desc')
         ->groupBy('users.id')
         ->paginate($request->per_page ?? $this->perPage);
@@ -233,7 +234,7 @@ class MessagesController extends Controller
      * Put a user in the favorites list
      *
      * @param Request $request
-     * @return void
+     * @return \Illuminate\Http\JsonResponse
      */
     public function favorite(Request $request)
     {
@@ -252,7 +253,7 @@ class MessagesController extends Controller
      * Get favorites list
      *
      * @param Request $request
-     * @return void
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getFavorites(Request $request)
     {
@@ -272,7 +273,7 @@ class MessagesController extends Controller
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function search(Request $request)
+    public function search(Request $request): \Illuminate\Http\JsonResponse
     {
         $input = trim(filter_var($request['input']));
         $records = User::where('id','!=',Auth::user()->id)
@@ -296,7 +297,7 @@ class MessagesController extends Controller
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function sharedPhotos(Request $request)
+    public function sharedPhotos(Request $request): \Illuminate\Http\JsonResponse
     {
         $images = Chatify::getSharedPhotos($request['user_id']);
 
@@ -313,7 +314,7 @@ class MessagesController extends Controller
      * Delete conversation
      *
      * @param Request $request
-     * @return void
+     * @return \Illuminate\Http\JsonResponse
      */
     public function deleteConversation(Request $request)
     {
@@ -344,12 +345,15 @@ class MessagesController extends Controller
             User::where('id', Auth::user()->id)
                 ->update(['messenger_color' => $messenger_color]);
         }
+
         // if there is a [file]
-        if ($request->hasFile('avatar')) {
+        if ($request->hasFile('avatar'))
+        {
             // allowed extensions
             $allowed_images = Chatify::getAllowedImages();
 
             $file = $request->file('avatar');
+
             // check file size
             if ($file->getSize() < Chatify::getMaxUploadSize()) {
                 if (in_array(strtolower($file->extension()), $allowed_images)) {
@@ -387,14 +391,20 @@ class MessagesController extends Controller
      * Set user's active status
      *
      * @param Request $request
-     * @return void
+     * @return \Illuminate\Http\JsonResponse
      */
     public function setActiveStatus(Request $request)
     {
         $activeStatus = $request['status'] > 0 ? 1 : 0;
-        $status = User::where('id', Auth::user()->id)->update(['active_status' => $activeStatus]);
+
+        $userId = auth()->id();
+
+        $status = User::whereIntegerInRaw('id', [$userId])->update(['active_status' => $activeStatus]);
+
+        Cache::forget(MyCache::keyUserOnline($userId));
+
         return Response::json([
             'status' => $status,
-        ], 200);
+        ]);
     }
 }

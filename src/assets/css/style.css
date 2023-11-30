@@ -1171,6 +1171,9 @@ div.loadingPlaceholder-date {
 * Emoji Button scroll-bars
 *****************************************
 */
+.emoji-button {
+  /*display: none !important;*/
+}
 .emoji-picker__emojis::-webkit-scrollbar {
   width: 5px;
   height: 5px;
